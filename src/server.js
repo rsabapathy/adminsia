@@ -23,7 +23,7 @@ const app = express();
 
 const PORT = process.env.PORT || 4000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/aurora_roast';
-const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:3000';
+const CORS_ORIGIN = process.env.CORS_ORIGIN || 'https://siacoffee.co.uk';
 const SESSION_SECRET = process.env.ADMIN_SESSION_SECRET || 'dev-secret';
 
 // Connect to DB
