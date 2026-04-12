@@ -23,7 +23,7 @@ router.get('/login', (req, res) => {
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Iyarkai Admin • Login</title>
+    <title>Sia Coffee Admin • Login</title>
     <style>
       body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 2rem; background: #f6f2ec; color: #2b2620; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
       .card { background: #fff; border-radius: 0.85rem; padding: 1.5rem 1.75rem; box-shadow: 0 10px 25px rgba(0,0,0,0.08); width: 100%; max-width: 360px; }
@@ -37,7 +37,7 @@ router.get('/login', (req, res) => {
   </head>
   <body>
     <div class="card">
-      <h1>Iyarkai Admin</h1>
+      <h1>Sia Coffee Admin</h1>
       ${error ? `<div class="error">${error}</div>` : ''}
       <form method="POST" action="/admin/login">
         <label for="user">Username</label>
@@ -151,7 +151,7 @@ router.get('/dashboard', requireAdmin, async (req, res, next) => {
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Iyarkai Admin • Dashboard</title>
+    <title>Sia Coffee Admin • Dashboard</title>
     <style>
       body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 1.5rem; background: #f6f2ec; color: #2b2620; }
       header { margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; }
@@ -166,7 +166,7 @@ router.get('/dashboard', requireAdmin, async (req, res, next) => {
   </head>
   <body>
     <header>
-      <h1>Iyarkai Roast • Admin</h1>
+      <h1>Sia Coffee Roast • Admin</h1>
       <nav>
         <a href="/admin/dashboard" class="active">Dashboard</a>
         <a href="/admin/products">Products</a>
@@ -240,7 +240,7 @@ router.get('/products', requireAdmin, async (req, res, next) => {
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Iyarkai Admin • Products</title>
+    <title>Sia Coffee Admin • Products</title>
     <style>
       body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 1.5rem; background: #f6f2ec; color: #2b2620; }
       header { margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; }
@@ -259,7 +259,7 @@ router.get('/products', requireAdmin, async (req, res, next) => {
   </head>
   <body>
     <header>
-      <h1>Iyarkai Roast • Admin</h1>
+      <h1>Sia Coffee Roast • Admin</h1>
       <nav>
         <a href="/admin/dashboard">Dashboard</a>
         <a href="/admin/products" class="active">Products</a>
@@ -305,7 +305,7 @@ router.get('/products/new', requireAdmin, (req, res) => {
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Iyarkai Admin • New Product</title>
+    <title>Sia Coffee Admin • New Product</title>
     <style>
       body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 1.5rem; background: #f6f2ec; color: #2b2620; }
       header { margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; }
@@ -324,7 +324,7 @@ router.get('/products/new', requireAdmin, (req, res) => {
   </head>
   <body>
     <header>
-      <h1>Iyarkai Roast • Admin</h1>
+      <h1>Sia Coffee Roast • Admin</h1>
       <nav>
         <a href="/admin/dashboard">Dashboard</a>
         <a href="/admin/products" class="active">Products</a>
@@ -442,7 +442,7 @@ router.get('/products/:id/edit', requireAdmin, async (req, res, next) => {
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Iyarkai Admin • Edit Product</title>
+    <title>Sia Coffee Admin • Edit Product</title>
     <style>
       body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 1.5rem; background: #f6f2ec; color: #2b2620; }
       header { margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; }
@@ -461,7 +461,7 @@ router.get('/products/:id/edit', requireAdmin, async (req, res, next) => {
   </head>
   <body>
     <header>
-      <h1>Iyarkai Roast • Admin</h1>
+      <h1>Sia Coffee Roast • Admin</h1>
       <nav>
         <a href="/admin/dashboard">Dashboard</a>
         <a href="/admin/products" class="active">Products</a>
@@ -707,7 +707,7 @@ router.get('/orders', requireAdmin, async (req, res, next) => {
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Iyarkai Admin • Orders</title>
+    <title>Sia Coffee Admin • Orders</title>
     <style>
       body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 1.5rem; background: #f6f2ec; color: #2b2620; }
       header { margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; }
@@ -724,7 +724,7 @@ router.get('/orders', requireAdmin, async (req, res, next) => {
   </head>
   <body>
     <header>
-      <h1>Iyarkai Roast • Admin</h1>
+      <h1>Sia Coffee Roast • Admin</h1>
       <nav>
         <a href="/admin/dashboard">Dashboard</a>
         <a href="/admin/products">Products</a>
