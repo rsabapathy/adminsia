@@ -129,86 +129,622 @@ router.get('/', requireAdmin, (req, res) => {
 
 router.get('/dashboard', requireAdmin, async (req, res, next) => {
   try {
-    const [productCount, orderCount] = await Promise.all([
-      Product.countDocuments(),
-      Order.countDocuments(),
-    ]);
-
     const now = new Date();
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const recentOrders = await Order.find({ createdAt: { $gte: sevenDaysAgo } });
+
+    const [
+      productCount,
+      activeProductCount,
+      deletedProductCount,
+      orderCount,
+      paidOrderCount,
+      pendingOrderCount,
+      recentOrders,
+      topOrders,
+      lowStockProducts,
+    ] = await Promise.all([
+      Product.countDocuments(),
+      Product.countDocuments({ isActive: true, isDeleted: { $ne: true } }),
+      Product.countDocuments({ isDeleted: true }),
+      Order.countDocuments(),
+      Order.countDocuments({ status: 'paid' }),
+      Order.countDocuments({ status: 'pending' }),
+      Order.find({ createdAt: { $gte: sevenDaysAgo } }).sort({ createdAt: 1 }),
+      Order.find().sort({ createdAt: -1 }).limit(5),
+      Product.find({
+        isDeleted: { $ne: true },
+        stock: { $ne: null, $lte: 5 },
+      }).limit(5),
+    ]);
+
+    const totalRevenue = recentOrders.reduce((sum, order) => sum + order.subtotal, 0);
 
     const byDay = {};
-    recentOrders.forEach((o) => {
-      const key = o.createdAt.toISOString().slice(0, 10);
-      byDay[key] = (byDay[key] || 0) + o.subtotal;
+    recentOrders.forEach((order) => {
+      const key = order.createdAt.toISOString().slice(0, 10);
+      if (!byDay[key]) {
+        byDay[key] = { revenue: 0, orders: 0 };
+      }
+      byDay[key].revenue += order.subtotal;
+      byDay[key].orders += 1;
     });
 
-    const labels = Object.keys(byDay).sort();
-    const data = labels.map((d) => byDay[d]);
+    const chartLabels = Object.keys(byDay).sort();
+    const revenueData = chartLabels.map((day) => byDay[day].revenue);
+    const ordersData = chartLabels.map((day) => byDay[day].orders);
+
+    const latestOrderRows = topOrders
+      .map(
+        (order) => `
+          <tr>
+            <td><a href="/admin/orders/${order._id}">${order._id.toString().slice(-6)}</a></td>
+            <td>${order.name}</td>
+            <td>${order.status}</td>
+            <td>£${order.subtotal}</td>
+            <td>${order.createdAt.toISOString().slice(0, 10)}</td>
+          </tr>
+        `
+      )
+      .join('');
+
+    const lowStockRows = lowStockProducts.length
+      ? lowStockProducts
+          .map(
+            (product) => `
+              <li>
+                <span>${product.name}</span>
+                <strong>${product.stock}</strong>
+              </li>
+            `
+          )
+          .join('')
+      : `<li><span>No low-stock products</span><strong>✓</strong></li>`;
 
     res.send(`<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>Sia Coffee Admin • Dashboard</title>
-    <style>
-      body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 1.5rem; background: #f6f2ec; color: #2b2620; }
-      header { margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; }
-      nav a { margin-right: 1rem; text-decoration: none; color: #4b3b2a; }
-      nav a.active { font-weight: 600; }
-      .card { background: #fff; border-radius: 0.85rem; padding: 1rem 1.25rem; box-shadow: 0 10px 25px rgba(0,0,0,0.06); max-width: 640px; }
-      .metric { font-size: 0.95rem; margin-bottom: 0.4rem; }
-      .metric strong { font-size: 1.3rem; margin-right: 0.25rem; }
-      form.logout { margin: 0; display: inline; }
-      form.logout button { border: none; background: transparent; color: #7a5f46; cursor: pointer; font-size: 0.85rem; text-decoration: underline; }
-    </style>
-  </head>
-  <body>
-    <header>
-      <h1>Sia Coffee Roast • Admin</h1>
-      <nav>
-        <a href="/admin/dashboard" class="active">Dashboard</a>
-        <a href="/admin/products">Products</a>
-        <a href="/admin/orders">Orders</a>
-        <form method="POST" action="/admin/logout" class="logout">
-          <button type="submit">Logout</button>
-        </form>
-      </nav>
-    </header>
-    <main>
-      <div class="card">
-        <h2>Overview</h2>
-        <p class="metric"><strong>${productCount}</strong> products in catalogue</p>
-        <p class="metric"><strong>${orderCount}</strong> orders stored</p>
-        <p style="font-size: 0.85rem; color: #7a6b5c; margin-top: 0.75rem;">
-          This is a lightweight HTML admin for quick dev checks. Add real auth + HTTPS before using anything like this in production.
-        </p>
+<head>
+  <meta charset="UTF-8" />
+  <title>Aurora Admin • Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg: #f6f2ec;
+      --card: #fffaf3;
+      --dark: #2b2118;
+      --muted: #7a6b5c;
+      --accent: #7a5f46;
+      --accent-2: #c88b4a;
+      --border: #eadcc8;
+      --shadow: 0 18px 45px rgba(43, 33, 24, 0.12);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(200,139,74,0.18), transparent 34rem),
+        linear-gradient(135deg, #f9f3e8, #f1e5d6);
+      color: var(--dark);
+      padding: 1.5rem;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      align-items: center;
+      margin-bottom: 1.5rem;
+      background: rgba(255, 250, 243, 0.8);
+      border: 1px solid rgba(234, 220, 200, 0.85);
+      backdrop-filter: blur(14px);
+      padding: 1rem 1.25rem;
+      border-radius: 1.25rem;
+      box-shadow: var(--shadow);
+    }
+
+    h1, h2, h3, p { margin-top: 0; }
+
+    h1 {
+      font-size: 1.45rem;
+      margin-bottom: 0.15rem;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin-bottom: 0;
+    }
+
+    nav {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      flex-wrap: wrap;
+    }
+
+    nav a {
+      text-decoration: none;
+      color: var(--muted);
+      font-size: 0.9rem;
+      padding: 0.35rem 0.65rem;
+      border-radius: 999px;
+    }
+
+    nav a.active {
+      color: #fff;
+      background: var(--accent);
+    }
+
+    .logout {
+      display: inline;
+      margin: 0;
+    }
+
+    .logout button {
+      border: none;
+      background: transparent;
+      color: var(--accent);
+      cursor: pointer;
+      font-size: 0.85rem;
+      text-decoration: underline;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1.4fr 0.8fr;
+      gap: 1.25rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .hero-card,
+    .panel,
+    .stat-card {
+      background: rgba(255, 250, 243, 0.9);
+      border: 1px solid rgba(234, 220, 200, 0.9);
+      border-radius: 1.35rem;
+      box-shadow: var(--shadow);
+    }
+
+    .hero-card {
+      padding: 1.4rem;
+      background:
+        linear-gradient(135deg, rgba(122,95,70,0.96), rgba(43,33,24,0.96)),
+        radial-gradient(circle at top right, rgba(255,255,255,0.25), transparent 20rem);
+      color: #fffaf3;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .hero-card::after {
+      content: "☕";
+      position: absolute;
+      right: 1.2rem;
+      bottom: -1.2rem;
+      font-size: 7rem;
+      opacity: 0.12;
+    }
+
+    .hero-card h2 {
+      font-size: 1.8rem;
+      margin-bottom: 0.45rem;
+    }
+
+    .hero-card p {
+      max-width: 42rem;
+      color: rgba(255,250,243,0.78);
+      margin-bottom: 1rem;
+    }
+
+    .quick-actions {
+      display: flex;
+      gap: 0.65rem;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+      background: #fffaf3;
+      color: var(--dark);
+      border-radius: 999px;
+      padding: 0.55rem 0.9rem;
+      font-size: 0.88rem;
+      font-weight: 650;
+      border: none;
+      cursor: pointer;
+    }
+
+    .btn.dark {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .mini-panel {
+      padding: 1.15rem;
+    }
+
+    .mini-panel h3 {
+      margin-bottom: 0.65rem;
+      font-size: 1rem;
+    }
+
+    .stock-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: grid;
+      gap: 0.45rem;
+    }
+
+    .stock-list li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(255,255,255,0.65);
+      border: 1px solid var(--border);
+      border-radius: 0.8rem;
+      padding: 0.55rem 0.65rem;
+      font-size: 0.86rem;
+    }
+
+    .stock-list strong {
+      background: #fff0dc;
+      color: #9a5a14;
+      padding: 0.15rem 0.45rem;
+      border-radius: 999px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .stat-card {
+      padding: 1rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stat-card::after {
+      content: "";
+      position: absolute;
+      width: 5.5rem;
+      height: 5.5rem;
+      right: -2rem;
+      top: -2rem;
+      background: rgba(200,139,74,0.15);
+      border-radius: 50%;
+    }
+
+    .stat-label {
+      color: var(--muted);
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 0.4rem;
+    }
+
+    .stat-value {
+      font-size: 1.8rem;
+      font-weight: 750;
+      margin-bottom: 0.25rem;
+    }
+
+    .stat-note {
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    .content-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+      gap: 1.25rem;
+    }
+
+    .panel {
+      padding: 1.15rem;
+    }
+
+    .panel h3 {
+      margin-bottom: 0.8rem;
+      font-size: 1.05rem;
+    }
+
+    canvas {
+      max-height: 260px;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      font-size: 0.86rem;
+      overflow: hidden;
+      border-radius: 1rem;
+    }
+
+    th, td {
+      padding: 0.65rem 0.7rem;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+    }
+
+    th {
+      color: var(--muted);
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    td a {
+      color: var(--accent);
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .badge {
+      display: inline-flex;
+      padding: 0.15rem 0.45rem;
+      border-radius: 999px;
+      background: #fff0dc;
+      color: #8a4f13;
+      font-size: 0.76rem;
+      font-weight: 650;
+    }
+
+    @media (max-width: 980px) {
+      .stats-grid,
+      .hero-grid,
+      .content-grid {
+        grid-template-columns: 1fr;
+      }
+
+      header {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Aurora Roast • Admin</h1>
+      <p class="subtitle">Dashboard overview, shop health and recent activity</p>
+    </div>
+
+    <nav>
+      <a href="/admin/dashboard" class="active">Dashboard</a>
+      <a href="/admin/products">Products</a>
+      <a href="/admin/orders">Orders</a>
+      <form method="POST" action="/admin/logout" class="logout">
+        <button type="submit">Logout</button>
+      </form>
+    </nav>
+  </header>
+
+  <section class="hero-grid">
+    <div class="hero-card">
+      <h2>Good morning, roaster.</h2>
+      <p>
+        Aurora is currently tracking ${productCount} products and ${orderCount} orders.
+        Revenue in the last 7 days is <strong>£${totalRevenue}</strong>.
+      </p>
+
+      <div class="quick-actions">
+        <a href="/admin/products/new" class="btn">+ Add product</a>
+        <a href="/admin/orders" class="btn">View orders</a>
+        <a href="/api/products" class="btn">API products</a>
       </div>
-      <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-      <canvas id="ordersChart" width="400" height="160"></canvas>
-      <script>
-        const labels = ${JSON.stringify(labels)};
-        const data = ${JSON.stringify(data)};
-        const ctx = document.getElementById('ordersChart').getContext('2d');
-        new Chart(ctx, {
-          type: 'bar',
-          data: {
-            labels,
-            datasets: [{
-              label: 'Revenue (last 7 days, £)',
-              data,
-            }]
+    </div>
+
+    <div class="panel mini-panel">
+      <h3>Low stock watch</h3>
+      <ul class="stock-list">
+        ${lowStockRows}
+      </ul>
+    </div>
+  </section>
+
+  <section class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">Revenue / 7 days</div>
+      <div class="stat-value">£${totalRevenue}</div>
+      <div class="stat-note">From recent orders</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-label">Total orders</div>
+      <div class="stat-value">${orderCount}</div>
+      <div class="stat-note">${paidOrderCount} paid • ${pendingOrderCount} pending</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-label">Active products</div>
+      <div class="stat-value">${activeProductCount}</div>
+      <div class="stat-note">${deletedProductCount} soft-deleted</div>
+    </div>
+
+    <div class="stat-card">
+      <div class="stat-label">Avg. order value</div>
+      <div class="stat-value">£${
+        recentOrders.length ? Math.round(totalRevenue / recentOrders.length) : 0
+      }</div>
+      <div class="stat-note">Based on last 7 days</div>
+    </div>
+  </section>
+
+  <section class="content-grid">
+    <div class="panel">
+      <h3>Revenue & orders</h3>
+      <canvas id="revenueChart"></canvas>
+    </div>
+
+    <div class="panel">
+      <h3>Recent orders</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Order</th>
+            <th>Customer</th>
+            <th>Status</th>
+            <th>Total</th>
+            <th>Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${latestOrderRows || `<tr><td colspan="5">No orders yet</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <script>
+    const labels = ${JSON.stringify(chartLabels)};
+    const revenueData = ${JSON.stringify(revenueData)};
+    const ordersData = ${JSON.stringify(ordersData)};
+
+    const ctx = document.getElementById('revenueChart');
+
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'Revenue (£)',
+            data: revenueData,
+            yAxisID: 'y',
+            borderWidth: 1
           },
-        });
-      </script>
-    </main>
-  </body>
+          {
+            label: 'Orders',
+            data: ordersData,
+            type: 'line',
+            yAxisID: 'y1',
+            tension: 0.35
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        interaction: {
+          mode: 'index',
+          intersect: false
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            position: 'left'
+          },
+          y1: {
+            beginAtZero: true,
+            position: 'right',
+            grid: {
+              drawOnChartArea: false
+            }
+          }
+        }
+      }
+    });
+  </script>
+</body>
 </html>`);
   } catch (err) {
     next(err);
   }
 });
+// router.get('/dashboard', requireAdmin, async (req, res, next) => {
+//   try {
+//     const [productCount, orderCount] = await Promise.all([
+//       Product.countDocuments(),
+//       Order.countDocuments(),
+//     ]);
+
+//     const now = new Date();
+//     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+//     const recentOrders = await Order.find({ createdAt: { $gte: sevenDaysAgo } });
+
+//     const byDay = {};
+//     recentOrders.forEach((o) => {
+//       const key = o.createdAt.toISOString().slice(0, 10);
+//       byDay[key] = (byDay[key] || 0) + o.subtotal;
+//     });
+
+//     const labels = Object.keys(byDay).sort();
+//     const data = labels.map((d) => byDay[d]);
+
+//     res.send(`<!DOCTYPE html>
+// <html lang="en">
+//   <head>
+//     <meta charset="UTF-8" />
+//     <title>Sia Coffee Admin • Dashboard</title>
+//     <style>
+//       body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 1.5rem; background: #f6f2ec; color: #2b2620; }
+//       header { margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; }
+//       nav a { margin-right: 1rem; text-decoration: none; color: #4b3b2a; }
+//       nav a.active { font-weight: 600; }
+//       .card { background: #fff; border-radius: 0.85rem; padding: 1rem 1.25rem; box-shadow: 0 10px 25px rgba(0,0,0,0.06); max-width: 640px; }
+//       .metric { font-size: 0.95rem; margin-bottom: 0.4rem; }
+//       .metric strong { font-size: 1.3rem; margin-right: 0.25rem; }
+//       form.logout { margin: 0; display: inline; }
+//       form.logout button { border: none; background: transparent; color: #7a5f46; cursor: pointer; font-size: 0.85rem; text-decoration: underline; }
+//     </style>
+//   </head>
+//   <body>
+//     <header>
+//       <h1>Sia Coffee Roast • Admin</h1>
+//       <nav>
+//         <a href="/admin/dashboard" class="active">Dashboard</a>
+//         <a href="/admin/products">Products</a>
+//         <a href="/admin/orders">Orders</a>
+//         <form method="POST" action="/admin/logout" class="logout">
+//           <button type="submit">Logout</button>
+//         </form>
+//       </nav>
+//     </header>
+//     <main>
+//       <div class="card">
+//         <h2>Overview</h2>
+//         <p class="metric"><strong>${productCount}</strong> products in catalogue</p>
+//         <p class="metric"><strong>${orderCount}</strong> orders stored</p>
+//         <p style="font-size: 0.85rem; color: #7a6b5c; margin-top: 0.75rem;">
+//           This is a lightweight HTML admin for quick dev checks. Add real auth + HTTPS before using anything like this in production.
+//         </p>
+//       </div>
+//       <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+//       <canvas id="ordersChart" width="400" height="160"></canvas>
+//       <script>
+//         const labels = ${JSON.stringify(labels)};
+//         const data = ${JSON.stringify(data)};
+//         const ctx = document.getElementById('ordersChart').getContext('2d');
+//         new Chart(ctx, {
+//           type: 'bar',
+//           data: {
+//             labels,
+//             datasets: [{
+//               label: 'Revenue (last 7 days, £)',
+//               data,
+//             }]
+//           },
+//         });
+//       </script>
+//     </main>
+//   </body>
+// </html>`);
+//   } catch (err) {
+//     next(err);
+//   }
+// });
 
 // ---------- Product CRUD ----------
 
