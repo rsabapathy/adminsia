@@ -17,6 +17,232 @@ router.use(express.urlencoded({ extended: false }));
 
 // ---------- Auth routes ----------
 
+function adminHeader(active = "dashboard") {
+  return `
+    <header>
+      <div>
+        <h1>Sia Coffee • Admin</h1>
+        <p class="subtitle">Dashboard overview, shop health and recent activity</p>
+      </div>
+
+      <nav>
+        <a href="/admin/dashboard" class="${active === "dashboard" ? "active" : ""}">Dashboard</a>
+        <a href="/admin/products" class="${active === "products" ? "active" : ""}">Products</a>
+        <a href="/admin/orders" class="${active === "orders" ? "active" : ""}">Orders</a>
+        <form method="POST" action="/admin/logout" class="logout">
+          <button type="submit">Logout</button>
+        </form>
+      </nav>
+    </header>
+  `;
+}
+
+function adminBaseStyles() {
+  return `
+    :root {
+      --bg: #f6f2ec;
+      --card: #fffaf3;
+      --dark: #2b2118;
+      --muted: #7a6b5c;
+      --accent: #7a5f46;
+      --accent-2: #c88b4a;
+      --border: #eadcc8;
+      --shadow: 0 18px 45px rgba(43, 33, 24, 0.12);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(200,139,74,0.18), transparent 34rem),
+        linear-gradient(135deg, #f9f3e8, #f1e5d6);
+      color: var(--dark);
+      padding: 1.5rem;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      align-items: center;
+      margin-bottom: 1.5rem;
+      background: rgba(255, 250, 243, 0.8);
+      border: 1px solid rgba(234, 220, 200, 0.85);
+      backdrop-filter: blur(14px);
+      padding: 1rem 1.25rem;
+      border-radius: 1.25rem;
+      box-shadow: var(--shadow);
+    }
+
+    h1, h2, h3, p { margin-top: 0; }
+
+    h1 {
+      font-size: 1.45rem;
+      margin-bottom: 0.15rem;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin-bottom: 0;
+    }
+
+    nav {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      flex-wrap: wrap;
+    }
+
+    nav a {
+      text-decoration: none;
+      color: var(--muted);
+      font-size: 0.9rem;
+      padding: 0.35rem 0.65rem;
+      border-radius: 999px;
+    }
+
+    nav a.active {
+      color: #fff;
+      background: var(--accent);
+    }
+
+    .logout {
+      display: inline;
+      margin: 0;
+    }
+
+    .logout button {
+      border: none;
+      background: transparent;
+      color: var(--accent);
+      cursor: pointer;
+      font-size: 0.85rem;
+      text-decoration: underline;
+    }
+
+    .panel,
+    .card {
+      background: rgba(255, 250, 243, 0.9);
+      border: 1px solid rgba(234, 220, 200, 0.9);
+      border-radius: 1.35rem;
+      box-shadow: var(--shadow);
+      padding: 1.15rem;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      background: rgba(255, 250, 243, 0.9);
+      border-radius: 1.25rem;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      font-size: 0.86rem;
+    }
+
+    th, td {
+      padding: 0.65rem 0.7rem;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--muted);
+      font-size: 0.74rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      background: #f0e2cf;
+    }
+
+    tr:last-child td { border-bottom: none; }
+
+    td a {
+      color: var(--accent);
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .top-actions {
+      margin-bottom: 0.75rem;
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.5rem;
+    }
+
+    .btn-small,
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+      background: var(--accent);
+      color: #fff;
+      border-radius: 999px;
+      padding: 0.5rem 0.85rem;
+      font-size: 0.85rem;
+      font-weight: 650;
+      border: none;
+      cursor: pointer;
+    }
+
+    .btn-secondary {
+      border-radius: 999px;
+      border: 1px solid #c9b49a;
+      padding: 0.5rem 0.9rem;
+      background: #fff;
+      color: #4b3b2a;
+      font-size: 0.9rem;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    label {
+      display: block;
+      font-size: 0.85rem;
+      margin-bottom: 0.15rem;
+      color: var(--dark);
+    }
+
+    input,
+    textarea,
+    select {
+      width: 100%;
+      padding: 0.5rem 0.6rem;
+      border-radius: 0.55rem;
+      border: 1px solid #ddcdb8;
+      font-size: 0.9rem;
+      margin-bottom: 0.7rem;
+      background: #fff;
+    }
+
+    textarea { min-height: 90px; }
+
+    .actions {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .hint {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 0.6rem;
+    }
+
+    @media (max-width: 980px) {
+      header {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+    }
+  `;
+}
+
 router.get('/login', (req, res) => {
   const error = req.query.error ? 'Invalid credentials' : '';
   res.send(`<!DOCTYPE html>
@@ -25,14 +251,7 @@ router.get('/login', (req, res) => {
     <meta charset="UTF-8" />
     <title>Sia Coffee Admin • Login</title>
     <style>
-      body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 2rem; background: #f6f2ec; color: #2b2620; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-      .card { background: #fff; border-radius: 0.85rem; padding: 1.5rem 1.75rem; box-shadow: 0 10px 25px rgba(0,0,0,0.08); width: 100%; max-width: 360px; }
-      label { display: block; font-size: 0.85rem; margin-bottom: 0.25rem; }
-      input { width: 100%; padding: 0.4rem 0.5rem; border-radius: 0.4rem; border: 1px solid #ddcdb8; font-size: 0.9rem; margin-bottom: 0.75rem; }
-      button { width: 100%; border-radius: 999px; border: none; padding: 0.5rem 0.75rem; background: #7a5f46; color: #fff; font-size: 0.9rem; cursor: pointer; }
-      h1 { font-size: 1.3rem; margin-bottom: 0.75rem; }
-      .error { color: #b83232; font-size: 0.8rem; margin-bottom: 0.5rem; }
-      .hint { font-size: 0.75rem; color: #7a6b5c; margin-top: 0.75rem; }
+      ${adminBaseStyles()}
     </style>
   </head>
   <body>
@@ -204,7 +423,7 @@ router.get('/dashboard', requireAdmin, async (req, res, next) => {
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Aurora Admin • Dashboard</title>
+  <title>Sia Coffee Admin • Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root {
@@ -516,27 +735,13 @@ router.get('/dashboard', requireAdmin, async (req, res, next) => {
   </style>
 </head>
 <body>
-  <header>
-    <div>
-      <h1>Aurora Roast • Admin</h1>
-      <p class="subtitle">Dashboard overview, shop health and recent activity</p>
-    </div>
-
-    <nav>
-      <a href="/admin/dashboard" class="active">Dashboard</a>
-      <a href="/admin/products">Products</a>
-      <a href="/admin/orders">Orders</a>
-      <form method="POST" action="/admin/logout" class="logout">
-        <button type="submit">Logout</button>
-      </form>
-    </nav>
-  </header>
+  ${adminHeader("dashboard")}
 
   <section class="hero-grid">
     <div class="hero-card">
       <h2>Good morning, roaster.</h2>
       <p>
-        Aurora is currently tracking ${productCount} products and ${orderCount} orders.
+        Sia Coffee is currently tracking ${productCount} products and ${orderCount} orders.
         Revenue in the last 7 days is <strong>£${totalRevenue}</strong>.
       </p>
 
@@ -794,17 +999,7 @@ router.get('/products', requireAdmin, async (req, res, next) => {
     </style>
   </head>
   <body>
-    <header>
-      <h1>Sia Coffee Roast • Admin</h1>
-      <nav>
-        <a href="/admin/dashboard">Dashboard</a>
-        <a href="/admin/products" class="active">Products</a>
-        <a href="/admin/orders">Orders</a>
-        <form method="POST" action="/admin/logout" class="logout">
-          <button type="submit">Logout</button>
-        </form>
-      </nav>
-    </header>
+    ${adminHeader("products")}
     <main>
       <div class="top-actions">
         <a href="/admin/products/new" class="btn-small">+ New product</a>
@@ -859,17 +1054,7 @@ router.get('/products/new', requireAdmin, (req, res) => {
     </style>
   </head>
   <body>
-    <header>
-      <h1>Sia Coffee Roast • Admin</h1>
-      <nav>
-        <a href="/admin/dashboard">Dashboard</a>
-        <a href="/admin/products" class="active">Products</a>
-        <a href="/admin/orders">Orders</a>
-        <form method="POST" action="/admin/logout" class="logout">
-          <button type="submit">Logout</button>
-        </form>
-      </nav>
-    </header>
+   ${adminHeader("products")}
     <main>
       <div class="card">
         <h2>New product</h2>
@@ -996,17 +1181,7 @@ router.get('/products/:id/edit', requireAdmin, async (req, res, next) => {
     </style>
   </head>
   <body>
-    <header>
-      <h1>Sia Coffee Roast • Admin</h1>
-      <nav>
-        <a href="/admin/dashboard">Dashboard</a>
-        <a href="/admin/products" class="active">Products</a>
-        <a href="/admin/orders">Orders</a>
-        <form method="POST" action="/admin/logout" class="logout">
-          <button type="submit">Logout</button>
-        </form>
-      </nav>
-    </header>
+    ${adminHeader("products")}
     <main>
       <div class="card">
         <h2>Edit product</h2>
@@ -1166,17 +1341,7 @@ router.get('/orders/:id', requireAdmin, async (req, res, next) => {
     </style>
   </head>
   <body>
-    <header>
-      <h1>Aurora Roast • Admin</h1>
-      <nav>
-        <a href="/admin/dashboard">Dashboard</a>
-        <a href="/admin/products">Products</a>
-        <a href="/admin/orders" class="active">Orders</a>
-        <form method="POST" action="/admin/logout" style="display:inline;">
-          <button type="submit" style="border:none;background:transparent;color:#7a5f46;cursor:pointer;font-size:0.85rem;text-decoration:underline;">Logout</button>
-        </form>
-      </nav>
-    </header>
+    ${adminHeader("orders")}
     <main>
       <div class="card">
         <h2>Order ${o._id}</h2>
@@ -1259,17 +1424,7 @@ router.get('/orders', requireAdmin, async (req, res, next) => {
     </style>
   </head>
   <body>
-    <header>
-      <h1>Sia Coffee Roast • Admin</h1>
-      <nav>
-        <a href="/admin/dashboard">Dashboard</a>
-        <a href="/admin/products">Products</a>
-        <a href="/admin/orders" class="active">Orders</a>
-        <form method="POST" action="/admin/logout" class="logout">
-          <button type="submit">Logout</button>
-        </form>
-      </nav>
-    </header>
+    ${adminHeader("orders")}
     <main>
       <table>
         <thead>
