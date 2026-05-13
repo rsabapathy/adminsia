@@ -426,312 +426,7 @@ router.get('/dashboard', requireAdmin, async (req, res, next) => {
   <title>Sia Coffee Admin • Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    :root {
-      --bg: #f6f2ec;
-      --card: #fffaf3;
-      --dark: #2b2118;
-      --muted: #7a6b5c;
-      --accent: #7a5f46;
-      --accent-2: #c88b4a;
-      --border: #eadcc8;
-      --shadow: 0 18px 45px rgba(43, 33, 24, 0.12);
-    }
-
-    * { box-sizing: border-box; }
-
-    body {
-      margin: 0;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background:
-        radial-gradient(circle at top left, rgba(200,139,74,0.18), transparent 34rem),
-        linear-gradient(135deg, #f9f3e8, #f1e5d6);
-      color: var(--dark);
-      padding: 1.5rem;
-    }
-
-    header {
-      display: flex;
-      justify-content: space-between;
-      gap: 1rem;
-      align-items: center;
-      margin-bottom: 1.5rem;
-      background: rgba(255, 250, 243, 0.8);
-      border: 1px solid rgba(234, 220, 200, 0.85);
-      backdrop-filter: blur(14px);
-      padding: 1rem 1.25rem;
-      border-radius: 1.25rem;
-      box-shadow: var(--shadow);
-    }
-
-    h1, h2, h3, p { margin-top: 0; }
-
-    h1 {
-      font-size: 1.45rem;
-      margin-bottom: 0.15rem;
-    }
-
-    .subtitle {
-      color: var(--muted);
-      font-size: 0.85rem;
-      margin-bottom: 0;
-    }
-
-    nav {
-      display: flex;
-      align-items: center;
-      gap: 0.8rem;
-      flex-wrap: wrap;
-    }
-
-    nav a {
-      text-decoration: none;
-      color: var(--muted);
-      font-size: 0.9rem;
-      padding: 0.35rem 0.65rem;
-      border-radius: 999px;
-    }
-
-    nav a.active {
-      color: #fff;
-      background: var(--accent);
-    }
-
-    .logout {
-      display: inline;
-      margin: 0;
-    }
-
-    .logout button {
-      border: none;
-      background: transparent;
-      color: var(--accent);
-      cursor: pointer;
-      font-size: 0.85rem;
-      text-decoration: underline;
-    }
-
-    .hero-grid {
-      display: grid;
-      grid-template-columns: 1.4fr 0.8fr;
-      gap: 1.25rem;
-      margin-bottom: 1.25rem;
-    }
-
-    .hero-card,
-    .panel,
-    .stat-card {
-      background: rgba(255, 250, 243, 0.9);
-      border: 1px solid rgba(234, 220, 200, 0.9);
-      border-radius: 1.35rem;
-      box-shadow: var(--shadow);
-    }
-
-    .hero-card {
-      padding: 1.4rem;
-      background:
-        linear-gradient(135deg, rgba(122,95,70,0.96), rgba(43,33,24,0.96)),
-        radial-gradient(circle at top right, rgba(255,255,255,0.25), transparent 20rem);
-      color: #fffaf3;
-      overflow: hidden;
-      position: relative;
-    }
-
-    .hero-card::after {
-      content: "☕";
-      position: absolute;
-      right: 1.2rem;
-      bottom: -1.2rem;
-      font-size: 7rem;
-      opacity: 0.12;
-    }
-
-    .hero-card h2 {
-      font-size: 1.8rem;
-      margin-bottom: 0.45rem;
-    }
-
-    .hero-card p {
-      max-width: 42rem;
-      color: rgba(255,250,243,0.78);
-      margin-bottom: 1rem;
-    }
-
-    .quick-actions {
-      display: flex;
-      gap: 0.65rem;
-      flex-wrap: wrap;
-    }
-
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      text-decoration: none;
-      background: #fffaf3;
-      color: var(--dark);
-      border-radius: 999px;
-      padding: 0.55rem 0.9rem;
-      font-size: 0.88rem;
-      font-weight: 650;
-      border: none;
-      cursor: pointer;
-    }
-
-    .btn.dark {
-      background: var(--accent);
-      color: #fff;
-    }
-
-    .mini-panel {
-      padding: 1.15rem;
-    }
-
-    .mini-panel h3 {
-      margin-bottom: 0.65rem;
-      font-size: 1rem;
-    }
-
-    .stock-list {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-      display: grid;
-      gap: 0.45rem;
-    }
-
-    .stock-list li {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      background: rgba(255,255,255,0.65);
-      border: 1px solid var(--border);
-      border-radius: 0.8rem;
-      padding: 0.55rem 0.65rem;
-      font-size: 0.86rem;
-    }
-
-    .stock-list strong {
-      background: #fff0dc;
-      color: #9a5a14;
-      padding: 0.15rem 0.45rem;
-      border-radius: 999px;
-    }
-
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 1rem;
-      margin-bottom: 1.25rem;
-    }
-
-    .stat-card {
-      padding: 1rem;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .stat-card::after {
-      content: "";
-      position: absolute;
-      width: 5.5rem;
-      height: 5.5rem;
-      right: -2rem;
-      top: -2rem;
-      background: rgba(200,139,74,0.15);
-      border-radius: 50%;
-    }
-
-    .stat-label {
-      color: var(--muted);
-      font-size: 0.78rem;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      margin-bottom: 0.4rem;
-    }
-
-    .stat-value {
-      font-size: 1.8rem;
-      font-weight: 750;
-      margin-bottom: 0.25rem;
-    }
-
-    .stat-note {
-      color: var(--muted);
-      font-size: 0.82rem;
-    }
-
-    .content-grid {
-      display: grid;
-      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
-      gap: 1.25rem;
-    }
-
-    .panel {
-      padding: 1.15rem;
-    }
-
-    .panel h3 {
-      margin-bottom: 0.8rem;
-      font-size: 1.05rem;
-    }
-
-    canvas {
-      max-height: 260px;
-    }
-
-    table {
-      border-collapse: collapse;
-      width: 100%;
-      font-size: 0.86rem;
-      overflow: hidden;
-      border-radius: 1rem;
-    }
-
-    th, td {
-      padding: 0.65rem 0.7rem;
-      border-bottom: 1px solid var(--border);
-      text-align: left;
-    }
-
-    th {
-      color: var(--muted);
-      font-size: 0.74rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
-    td a {
-      color: var(--accent);
-      font-weight: 700;
-      text-decoration: none;
-    }
-
-    tr:last-child td {
-      border-bottom: none;
-    }
-
-    .badge {
-      display: inline-flex;
-      padding: 0.15rem 0.45rem;
-      border-radius: 999px;
-      background: #fff0dc;
-      color: #8a4f13;
-      font-size: 0.76rem;
-      font-weight: 650;
-    }
-
-    @media (max-width: 980px) {
-      .stats-grid,
-      .hero-grid,
-      .content-grid {
-        grid-template-columns: 1fr;
-      }
-
-      header {
-        align-items: flex-start;
-        flex-direction: column;
-      }
-    }
+    ${adminBaseStyles()}
   </style>
 </head>
 <body>
@@ -983,19 +678,7 @@ router.get('/products', requireAdmin, async (req, res, next) => {
     <meta charset="UTF-8" />
     <title>Sia Coffee Admin • Products</title>
     <style>
-      body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 1.5rem; background: #f6f2ec; color: #2b2620; }
-      header { margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; }
-      nav a { margin-right: 1rem; text-decoration: none; color: #4b3b2a; }
-      nav a.active { font-weight: 600; }
-      table { border-collapse: collapse; width: 100%; background: #fff; border-radius: 0.85rem; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.06); font-size: 0.85rem; }
-      th, td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #eee3d2; text-align: left; vertical-align: top; }
-      th { background: #f0e2cf; }
-      tr:last-child td { border-bottom: none; }
-      .hint { font-size: 0.8rem; color: #7a6b5c; margin-top: 0.5rem; }
-      form.logout { margin: 0; display: inline; }
-      form.logout button { border: none; background: transparent; color: #7a5f46; cursor: pointer; font-size: 0.85rem; text-decoration: underline; }
-      .top-actions { margin-bottom: 0.75rem; display:flex; justify-content: flex-end; }
-      .btn-small { display:inline-block; padding:0.35rem 0.7rem; border-radius:999px; background:#7a5f46; color:#fff; text-decoration:none; font-size:0.8rem; }
+      ${adminBaseStyles()}
     </style>
   </head>
   <body>
@@ -1038,12 +721,10 @@ router.get('/products/new', requireAdmin, (req, res) => {
     <meta charset="UTF-8" />
     <title>Sia Coffee Admin • New Product</title>
     <style>
-      body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 1.5rem; background: #f6f2ec; color: #2b2620; }
-      header { margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; }
-      nav a { margin-right: 1rem; text-decoration: none; color: #4b3b2a; }
-      nav a.active { font-weight: 600; }
-      .card { background: #fff; border-radius: 0.85rem; padding: 1rem 1.25rem; box-shadow: 0 10px 25px rgba(0,0,0,0.06); max-width: 640px; }
-      label { display:block; font-size:0.85rem; margin-bottom:0.15rem; }
+      ${adminBaseStyles()}
+    </style>
+  </head>
+  <body>
       input, textarea, select { width:100%; padding:0.4rem 0.5rem; border-radius:0.4rem; border:1px solid #ddcdb8; font-size:0.9rem; margin-bottom:0.6rem; }
       textarea { min-height: 80px; }
       .actions { display:flex; gap:0.5rem; margin-top:0.5rem; }
@@ -1165,19 +846,7 @@ router.get('/products/:id/edit', requireAdmin, async (req, res, next) => {
     <meta charset="UTF-8" />
     <title>Sia Coffee Admin • Edit Product</title>
     <style>
-      body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 1.5rem; background: #f6f2ec; color: #2b2620; }
-      header { margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; }
-      nav a { margin-right: 1rem; text-decoration: none; color: #4b3b2a; }
-      nav a.active { font-weight: 600; }
-      .card { background: #fff; border-radius: 0.85rem; padding: 1rem 1.25rem; box-shadow: 0 10px 25px rgba(0,0,0,0.06); max-width: 640px; }
-      label { display:block; font-size:0.85rem; margin-bottom:0.15rem; }
-      input, textarea, select { width:100%; padding:0.4rem 0.5rem; border-radius:0.4rem; border:1px solid #ddcdb8; font-size:0.9rem; margin-bottom:0.6rem; }
-      textarea { min-height: 80px; }
-      .actions { display:flex; gap:0.5rem; margin-top:0.5rem; }
-      .btn { border-radius:999px; border:none; padding:0.5rem 0.9rem; background:#7a5f46; color:#fff; font-size:0.9rem; cursor:pointer; }
-      .btn-secondary { border-radius:999px; border:1px solid #c9b49a; padding:0.5rem 0.9rem; background:#fff; color:#4b3b2a; font-size:0.9rem; text-decoration:none; display:inline-flex; align-items:center; }
-      form.logout { margin: 0; display:inline; }
-      form.logout button { border: none; background: transparent; color: #7a5f46; cursor: pointer; font-size: 0.85rem; text-decoration: underline; }
+      ${adminBaseStyles()}
     </style>
   </head>
   <body>
@@ -1324,21 +993,7 @@ router.get('/orders/:id', requireAdmin, async (req, res, next) => {
   <head>
     <meta charset="UTF-8" />
     <title>Order ${o._id}</title>
-    <style>
-      body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 1.5rem; background: #f6f2ec; color: #2b2620; }
-      header { margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; }
-      nav a { margin-right: 1rem; text-decoration: none; color: #4b3b2a; }
-      nav a.active { font-weight: 600; }
-      .card { background: #fff; border-radius: 0.85rem; padding: 1rem 1.25rem; box-shadow: 0 10px 25px rgba(0,0,0,0.06); max-width: 860px; }
-      table { border-collapse: collapse; width: 100%; font-size:0.85rem; margin-top:0.75rem; }
-      th, td { padding: 0.45rem 0.6rem; border-bottom: 1px solid #eee3d2; text-align:left; }
-      th { background:#f0e2cf; }
-      .meta { font-size:0.9rem; margin-bottom:0.5rem; }
-      label { display:block; font-size:0.8rem; margin-bottom:0.15rem; }
-      select { padding:0.3rem 0.4rem; border-radius:0.4rem; border:1px solid #ddcdb8; font-size:0.9rem; }
-      .actions { margin-top:0.6rem; }
-      .btn { border-radius:999px; border:none; padding:0.4rem 0.8rem; background:#7a5f46; color:#fff; font-size:0.85rem; cursor:pointer; }
-    </style>
+    ${adminBaseStyles()}
   </head>
   <body>
     ${adminHeader("orders")}
@@ -1410,17 +1065,7 @@ router.get('/orders', requireAdmin, async (req, res, next) => {
     <meta charset="UTF-8" />
     <title>Sia Coffee Admin • Orders</title>
     <style>
-      body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 1.5rem; background: #f6f2ec; color: #2b2620; }
-      header { margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; }
-      nav a { margin-right: 1rem; text-decoration: none; color: #4b3b2a; }
-      nav a.active { font-weight: 600; }
-      table { border-collapse: collapse; width: 100%; background: #fff; border-radius: 0.85rem; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.06); font-size: 0.85rem; }
-      th, td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #eee3d2; text-align: left; }
-      th { background: #f0e2cf; }
-      tr:last-child td { border-bottom: none; }
-      .hint { font-size: 0.8rem; color: #7a6b5c; margin-top: 0.5rem; }
-      form.logout { margin: 0; display:inline; }
-      form.logout button { border: none; background: transparent; color: #7a5f46; cursor: pointer; font-size: 0.85rem; text-decoration: underline; }
+      ${adminBaseStyles()}
     </style>
   </head>
   <body>
