@@ -1,7 +1,7 @@
 
 const Stripe = require('stripe');
-const stripeRoutes = require("./routes/stripeRoutes");
-const Order = require("./models/Order");
+const stripeRoutes = require('./routes/stripeRoutes');
+const Order = require('./models/Order');
 // const stripe = process.env.STRIPE_SECRET_KEY
 //   ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2024-06-20' })
 //   : null;
@@ -42,10 +42,10 @@ app.use('/api/auth', authRoutes);
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 app.post(
-  "/webhooks/stripe",
-  express.raw({ type: "application/json" }),
+  '/webhooks/stripe',
+  express.raw({ type: 'application/json' }),
   async (req, res) => {
-    const sig = req.headers["stripe-signature"];
+    const sig = req.headers['stripe-signature'];
 
     let event;
 
@@ -56,19 +56,19 @@ app.post(
         process.env.STRIPE_WEBHOOK_SECRET
       );
     } catch (err) {
-      console.error("Stripe webhook signature failed:", err.message);
+      console.error('Stripe webhook signature failed:', err.message);
       return res.status(400).send(`Webhook Error: ${err.message}`);
     }
 
     try {
-      if (event.type === "checkout.session.completed") {
+      if (event.type === 'checkout.session.completed') {
         const session = event.data.object;
         const orderId = session.metadata && session.metadata.orderId;
 
         if (orderId) {
           await Order.findByIdAndUpdate(orderId, {
-            status: "paid",
-            paymentProvider: "stripe",
+            status: 'paid',
+            paymentProvider: 'stripe',
             paymentReference: session.id,
           });
         }
@@ -76,15 +76,15 @@ app.post(
 
       res.json({ received: true });
     } catch (err) {
-      console.error("Webhook processing error:", err);
-      res.status(500).json({ message: "Webhook processing failed" });
+      console.error('Webhook processing error:', err);
+      res.status(500).json({ message: 'Webhook processing failed' });
     }
   }
 );
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
-app.use("/api/stripe", stripeRoutes);
+app.use('/api/stripe', stripeRoutes);
 // Session for admin login
 app.use(
   session({
