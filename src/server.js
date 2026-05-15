@@ -1,10 +1,8 @@
 
 const Stripe = require('stripe');
-const stripeRoutes = require('./routes/stripeRoutes');
-const Order = require('./models/Order');
-// const stripe = process.env.STRIPE_SECRET_KEY
-//   ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2024-06-20' })
-//   : null;
+const stripe = process.env.STRIPE_SECRET_KEY
+  ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2024-06-20' })
+  : null;
 const bodyParser = require('body-parser');
 
 require('dotenv').config();
@@ -39,16 +37,16 @@ app.use(morgan('dev'));
 app.use('/api/auth', authRoutes);
 
 // Stripe webhook (raw body)
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-
 app.post(
   '/webhooks/stripe',
-  express.raw({ type: 'application/json' }),
+  bodyParser.raw({ type: 'application/json' }),
   async (req, res) => {
+    if (!stripe || !process.env.STRIPE_WEBHOOK_SECRET) {
+      return res.status(500).send('Stripe not configured');
+    }
+
     const sig = req.headers['stripe-signature'];
-
     let event;
-
     try {
       event = stripe.webhooks.constructEvent(
         req.body,
@@ -56,35 +54,33 @@ app.post(
         process.env.STRIPE_WEBHOOK_SECRET
       );
     } catch (err) {
-      console.error('Stripe webhook signature failed:', err.message);
+      console.error('Webhook signature verification failed', err.message);
       return res.status(400).send(`Webhook Error: ${err.message}`);
     }
 
-    try {
-      if (event.type === 'checkout.session.completed') {
-        const session = event.data.object;
-        const orderId = session.metadata && session.metadata.orderId;
+    // Handle event types
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object;
 
-        if (orderId) {
-          await Order.findByIdAndUpdate(orderId, {
-            status: 'paid',
-            paymentProvider: 'stripe',
-            paymentReference: session.id,
-          });
-        }
+      // You decide: either create an order here, or
+      // store orderId in session.metadata.orderId and update existing order
+      const orderId = session.metadata && session.metadata.orderId;
+      if (orderId) {
+        const Order = require('./models/Order');
+        await Order.findByIdAndUpdate(orderId, {
+          status: 'paid',
+          paymentProvider: 'stripe',
+          paymentReference: session.id,
+        });
       }
-
-      res.json({ received: true });
-    } catch (err) {
-      console.error('Webhook processing error:', err);
-      res.status(500).json({ message: 'Webhook processing failed' });
     }
+
+    res.json({ received: true });
   }
 );
 
 app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-app.use('/api/stripe', stripeRoutes);
+
 // Session for admin login
 app.use(
   session({
