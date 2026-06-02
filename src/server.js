@@ -1,5 +1,7 @@
-
+require("dotenv").config();
 const Stripe = require('stripe');
+const stripeRoutes = require("./routes/stripeRoutes");
+const Order = require("./models/Order");
 const stripe = process.env.STRIPE_SECRET_KEY
   ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2024-06-20' })
   : null;
@@ -17,13 +19,57 @@ const adminRoutes = require('./routes/adminRoutes');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
 const path = require('path');
 const authRoutes = require('./routes/authRoutes');
-
+const contactRoutes = require("./routes/contactRoutes");
 
 const app = express();
+
+app.post(
+  "/webhooks/stripe",
+  express.raw({ type: "application/json" }),
+  async (req, res) => {
+    const sig = req.headers["stripe-signature"];
+
+    let event;
+
+    try {
+      event = stripe.webhooks.constructEvent(
+        req.body,
+        sig,
+        process.env.STRIPE_WEBHOOK_SECRET
+      );
+    } catch (err) {
+      console.error("Stripe webhook signature failed:", err.message);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    try {
+      if (event.type === "checkout.session.completed") {
+        const session = event.data.object;
+        const orderId = session.metadata && session.metadata.orderId;
+
+        if (orderId) {
+          await Order.findByIdAndUpdate(orderId, {
+            status: "paid",
+            paymentProvider: "stripe",
+            paymentReference: session.id,
+          });
+        }
+      }
+
+      res.json({ received: true });
+    } catch (err) {
+      console.error("Webhook processing error:", err);
+      res.status(500).json({ message: "Webhook processing failed" });
+    }
+  }
+);
+
+app.use(express.urlencoded({ extended: false }));
 
 const PORT = process.env.PORT || 4000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/aurora_roast';
 const CORS_ORIGIN = process.env.CORS_ORIGIN || 'https://siacoffee.co.uk';
+//const CORS_ORIGIN = process.env.CORS_ORIGIN || 'http://localhost:3000';
 const SESSION_SECRET = process.env.ADMIN_SESSION_SECRET || 'dev-secret';
 
 // Connect to DB
@@ -98,8 +144,10 @@ app.use(
 // API routes
 app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
+app.use("/api/contact", contactRoutes);
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
+app.use("/api/stripe", stripeRoutes);
 
 // Admin routes (HTML, with login)
 app.use('/admin', adminRoutes);

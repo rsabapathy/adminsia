@@ -12,6 +12,7 @@ const path = require('path');
 const upload = multer({
   dest: path.join(__dirname, '..', '..', 'uploads'),
 });
+const ContactMessage = require("../models/ContactMessage");
 
 router.use(express.urlencoded({ extended: false }));
 
@@ -29,6 +30,7 @@ function adminHeader(active = "dashboard") {
         <a href="/admin/dashboard" class="${active === "dashboard" ? "active" : ""}">Dashboard</a>
         <a href="/admin/products" class="${active === "products" ? "active" : ""}">Products</a>
         <a href="/admin/orders" class="${active === "orders" ? "active" : ""}">Orders</a>
+        <a href="/admin/messages" class="${active === "messages" ? "active" : ""}">Messages</a>
         <form method="POST" action="/admin/logout" class="logout">
           <button type="submit">Logout</button>
         </form>
@@ -122,6 +124,123 @@ function adminBaseStyles() {
       font-size: 0.85rem;
       text-decoration: underline;
     }
+
+    .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(160px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .stat-card {
+    position: relative;
+    overflow: hidden;
+    padding: 1.15rem;
+    min-height: 145px;
+    border-radius: 1.35rem;
+    background:
+      radial-gradient(circle at top right, rgba(200,139,74,0.22), transparent 5rem),
+      linear-gradient(145deg, rgba(255,250,243,0.95), rgba(247,236,220,0.9));
+    border: 1px solid rgba(234, 220, 200, 0.95);
+    box-shadow:
+      0 18px 45px rgba(43, 33, 24, 0.12),
+      inset 0 1px 0 rgba(255,255,255,0.65);
+    transition:
+      transform 180ms ease,
+      box-shadow 180ms ease,
+      border-color 180ms ease;
+  }
+
+  .stat-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(200,139,74,0.55);
+    box-shadow:
+      0 24px 60px rgba(43, 33, 24, 0.18),
+      inset 0 1px 0 rgba(255,255,255,0.75);
+  }
+
+  .stat-card::before {
+    content: "";
+    position: absolute;
+    inset: auto -2rem -2rem auto;
+    width: 7rem;
+    height: 7rem;
+    border-radius: 999px;
+    background: rgba(122,95,70,0.08);
+  }
+
+  .stat-card::after {
+    content: "";
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 999px;
+    background: var(--accent-2);
+    box-shadow: 0 0 0 0.35rem rgba(200,139,74,0.16);
+  }
+
+  .stat-label {
+    position: relative;
+    z-index: 1;
+    color: var(--muted);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 750;
+    margin-bottom: 0.55rem;
+  }
+
+  .stat-value {
+    position: relative;
+    z-index: 1;
+    font-size: clamp(1.75rem, 2.5vw, 2.25rem);
+    line-height: 1;
+    font-weight: 850;
+    letter-spacing: -0.045em;
+    color: var(--dark);
+    margin-bottom: 0.55rem;
+  }
+
+  .stat-note {
+    position: relative;
+    z-index: 1;
+    color: var(--muted);
+    font-size: 0.82rem;
+    line-height: 1.4;
+    max-width: 12rem;
+  }
+
+  @media (max-width: 1180px) {
+    .stats-grid {
+      grid-template-columns: repeat(3, minmax(160px, 1fr));
+    }
+  }
+
+  @media (max-width: 760px) {
+    .stats-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 520px) {
+    .stats-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+  .stat-icon {
+    position: relative;
+    z-index: 1;
+    width: 2.25rem;
+    height: 2.25rem;
+    display: grid;
+    place-items: center;
+    border-radius: 0.85rem;
+    background: #fff0dc;
+    margin-bottom: 0.75rem;
+    font-size: 1.05rem;
+  }
 
     .panel,
     .card {
@@ -361,6 +480,9 @@ router.get('/dashboard', requireAdmin, async (req, res, next) => {
       recentOrders,
       topOrders,
       lowStockProducts,
+      messageCount,
+      newMessageCount,
+      latestMessages,
     ] = await Promise.all([
       Product.countDocuments(),
       Product.countDocuments({ isActive: true, isDeleted: { $ne: true } }),
@@ -374,6 +496,9 @@ router.get('/dashboard', requireAdmin, async (req, res, next) => {
         isDeleted: { $ne: true },
         stock: { $ne: null, $lte: 5 },
       }).limit(5),
+      ContactMessage.countDocuments(),
+      ContactMessage.countDocuments({ status: "new" }),
+      ContactMessage.find().sort({ createdAt: -1 }).limit(3),
     ]);
 
     const totalRevenue = recentOrders.reduce((sum, order) => sum + order.subtotal, 0);
@@ -420,145 +545,152 @@ router.get('/dashboard', requireAdmin, async (req, res, next) => {
       : `<li><span>No low-stock products</span><strong>✓</strong></li>`;
 
     res.send(`<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Sia Coffee Admin • Dashboard</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    ${adminBaseStyles()}
-  </style>
-</head>
-<body>
-  ${adminHeader("dashboard")}
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8" />
+      <title>Sia Coffee Admin • Dashboard</title>
+      <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+      <style>
+        ${adminBaseStyles()}
+      </style>
+    </head>
+    <body>
+      ${adminHeader("dashboard")}
 
-  <section class="hero-grid">
-    <div class="hero-card">
-      <h2>Good morning, roaster.</h2>
-      <p>
-        Sia Coffee is currently tracking ${productCount} products and ${orderCount} orders.
-        Revenue in the last 7 days is <strong>£${totalRevenue}</strong>.
-      </p>
+      <section class="hero-grid">
+        <div class="hero-card">
+          <h2>Good morning, roaster.</h2>
+          <p>
+            Sia Coffee is currently tracking ${productCount} products and ${orderCount} orders.
+            Revenue in the last 7 days is <strong>£${totalRevenue}</strong>.
+          </p>
 
-      <div class="quick-actions">
-        <a href="/admin/products/new" class="btn">+ Add product</a>
-        <a href="/admin/orders" class="btn">View orders</a>
-        <a href="/api/products" class="btn">API products</a>
-      </div>
-    </div>
+          <div class="quick-actions">
+            <a href="/admin/products/new" class="btn">+ Add product</a>
+            <a href="/admin/orders" class="btn">View orders</a>
+            <a href="/api/products" class="btn">API products</a>
+          </div>
+        </div>
 
-    <div class="panel mini-panel">
-      <h3>Low stock watch</h3>
-      <ul class="stock-list">
-        ${lowStockRows}
-      </ul>
-    </div>
-  </section>
+        <div class="panel mini-panel">
+          <h3>Low stock watch</h3>
+          <ul class="stock-list">
+            ${lowStockRows}
+          </ul>
+        </div>
+      </section>
 
-  <section class="stats-grid">
-    <div class="stat-card">
-      <div class="stat-label">Revenue / 7 days</div>
-      <div class="stat-value">£${totalRevenue}</div>
-      <div class="stat-note">From recent orders</div>
-    </div>
+      <section class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon">💷</div>
+          <div class="stat-label">Revenue / 7 days</div>
+          <div class="stat-value">£${totalRevenue}</div>
+          <div class="stat-note">From recent orders</div>
+        </div>
 
-    <div class="stat-card">
-      <div class="stat-label">Total orders</div>
-      <div class="stat-value">${orderCount}</div>
-      <div class="stat-note">${paidOrderCount} paid • ${pendingOrderCount} pending</div>
-    </div>
+        <div class="stat-card">
+          <div class="stat-label">Total orders</div>
+          <div class="stat-value">${orderCount}</div>
+          <div class="stat-note">${paidOrderCount} paid • ${pendingOrderCount} pending</div>
+        </div>
 
-    <div class="stat-card">
-      <div class="stat-label">Active products</div>
-      <div class="stat-value">${activeProductCount}</div>
-      <div class="stat-note">${deletedProductCount} soft-deleted</div>
-    </div>
+        <div class="stat-card">
+          <div class="stat-label">Active products</div>
+          <div class="stat-value">${activeProductCount}</div>
+          <div class="stat-note">${deletedProductCount} soft-deleted</div>
+        </div>
 
-    <div class="stat-card">
-      <div class="stat-label">Avg. order value</div>
-      <div class="stat-value">£${
-        recentOrders.length ? Math.round(totalRevenue / recentOrders.length) : 0
-      }</div>
-      <div class="stat-note">Based on last 7 days</div>
-    </div>
-  </section>
+        <div class="stat-card">
+          <div class="stat-label">Avg. order value</div>
+          <div class="stat-value">£${
+            recentOrders.length ? Math.round(totalRevenue / recentOrders.length) : 0
+          }</div>
+          <div class="stat-note">Based on last 7 days</div>
+        </div>
 
-  <section class="content-grid">
-    <div class="panel">
-      <h3>Revenue & orders</h3>
-      <canvas id="revenueChart"></canvas>
-    </div>
+        <div class="stat-card">
+          <div class="stat-label">Messages</div>
+          <div class="stat-value">${newMessageCount}</div>
+          <div class="stat-note">${messageCount} total enquiries</div>
+        </div>
+      </section>
 
-    <div class="panel">
-      <h3>Recent orders</h3>
-      <table>
-        <thead>
-          <tr>
-            <th>Order</th>
-            <th>Customer</th>
-            <th>Status</th>
-            <th>Total</th>
-            <th>Date</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${latestOrderRows || `<tr><td colspan="5">No orders yet</td></tr>`}
-        </tbody>
-      </table>
-    </div>
-  </section>
+      <section class="content-grid">
+        <div class="panel">
+          <h3>Revenue & orders</h3>
+          <canvas id="revenueChart"></canvas>
+        </div>
 
-  <script>
-    const labels = ${JSON.stringify(chartLabels)};
-    const revenueData = ${JSON.stringify(revenueData)};
-    const ordersData = ${JSON.stringify(ordersData)};
+        <div class="panel">
+          <h3>Recent orders</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Order</th>
+                <th>Customer</th>
+                <th>Status</th>
+                <th>Total</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${latestOrderRows || `<tr><td colspan="5">No orders yet</td></tr>`}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
-    const ctx = document.getElementById('revenueChart');
+      <script>
+        const labels = ${JSON.stringify(chartLabels)};
+        const revenueData = ${JSON.stringify(revenueData)};
+        const ordersData = ${JSON.stringify(ordersData)};
 
-    new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels,
-        datasets: [
-          {
-            label: 'Revenue (£)',
-            data: revenueData,
-            yAxisID: 'y',
-            borderWidth: 1
+        const ctx = document.getElementById('revenueChart');
+
+        new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels,
+            datasets: [
+              {
+                label: 'Revenue (£)',
+                data: revenueData,
+                yAxisID: 'y',
+                borderWidth: 1
+              },
+              {
+                label: 'Orders',
+                data: ordersData,
+                type: 'line',
+                yAxisID: 'y1',
+                tension: 0.35
+              }
+            ]
           },
-          {
-            label: 'Orders',
-            data: ordersData,
-            type: 'line',
-            yAxisID: 'y1',
-            tension: 0.35
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        interaction: {
-          mode: 'index',
-          intersect: false
-        },
-        scales: {
-          y: {
-            beginAtZero: true,
-            position: 'left'
-          },
-          y1: {
-            beginAtZero: true,
-            position: 'right',
-            grid: {
-              drawOnChartArea: false
+          options: {
+            responsive: true,
+            interaction: {
+              mode: 'index',
+              intersect: false
+            },
+            scales: {
+              y: {
+                beginAtZero: true,
+                position: 'left'
+              },
+              y1: {
+                beginAtZero: true,
+                position: 'right',
+                grid: {
+                  drawOnChartArea: false
+                }
+              }
             }
           }
-        }
-      }
-    });
-  </script>
-</body>
-</html>`);
+        });
+      </script>
+    </body>
+    </html>`);
   } catch (err) {
     next(err);
   }
@@ -645,6 +777,180 @@ router.get('/dashboard', requireAdmin, async (req, res, next) => {
 //     next(err);
 //   }
 // });
+
+router.get("/messages", requireAdmin, async (req, res, next) => {
+  try {
+    const messages = await ContactMessage.find().sort({ createdAt: -1 }).limit(100);
+
+    const rows = messages
+      .map(
+        (msg) => `
+          <tr>
+            <td>
+              <a href="/admin/messages/${msg._id}">
+                ${msg._id.toString().slice(-6)}
+              </a>
+            </td>
+            <td>${msg.name}</td>
+            <td>${msg.email}</td>
+            <td>${msg.topic || "General question"}</td>
+            <td>
+              <span class="badge ${msg.status === "new" ? "badge-new" : ""}">
+                ${msg.status}
+              </span>
+            </td>
+            <td>${msg.createdAt.toISOString().slice(0, 10)}</td>
+          </tr>
+        `
+      )
+      .join("");
+
+    res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Sia Coffee Admin • Messages</title>
+  <style>
+    ${adminBaseStyles()}
+
+    .badge {
+      display: inline-flex;
+      padding: 0.18rem 0.5rem;
+      border-radius: 999px;
+      background: #efe2d0;
+      color: #6d5338;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+
+    .badge-new {
+      background: #fff0dc;
+      color: #9a5a14;
+    }
+  </style>
+</head>
+<body>
+  ${adminHeader("messages")}
+
+  <main>
+    <div class="top-actions">
+      <span class="hint">Showing latest 100 contact messages</span>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Message</th>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Topic</th>
+          <th>Status</th>
+          <th>Date</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows || `<tr><td colspan="6">No messages yet.</td></tr>`}
+      </tbody>
+    </table>
+  </main>
+</body>
+</html>`);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/messages/:id", requireAdmin, async (req, res, next) => {
+  try {
+    const msg = await ContactMessage.findById(req.params.id);
+
+    if (!msg) {
+      return res.redirect("/admin/messages");
+    }
+
+    if (msg.status === "new") {
+      msg.status = "read";
+      await msg.save();
+    }
+
+    res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Sia Coffee Admin • Message</title>
+  <style>
+    ${adminBaseStyles()}
+
+    .message-meta {
+      display: grid;
+      gap: 0.35rem;
+      font-size: 0.9rem;
+      color: var(--muted);
+      margin-bottom: 1rem;
+    }
+
+    .message-body {
+      white-space: pre-wrap;
+      background: rgba(255,255,255,0.6);
+      border: 1px solid var(--border);
+      border-radius: 1rem;
+      padding: 1rem;
+      line-height: 1.55;
+    }
+  </style>
+</head>
+<body>
+  ${adminHeader("messages")}
+
+  <main>
+    <div class="card">
+      <h2 style="margin-bottom: 0.75rem;">Message from ${msg.name}</h2>
+
+      <div class="message-meta">
+        <div><strong>Email:</strong> <a href="mailto:${msg.email}">${msg.email}</a></div>
+        <div><strong>Topic:</strong> ${msg.topic || "General question"}</div>
+        <div><strong>Status:</strong> ${msg.status}</div>
+        <div><strong>Received:</strong> ${msg.createdAt.toISOString().slice(0, 16).replace("T", " ")}</div>
+      </div>
+
+      <div class="message-body">${msg.message}</div>
+
+      <div class="actions">
+        <a href="/admin/messages" class="btn-secondary">Back to messages</a>
+        <form method="POST" action="/admin/messages/${msg._id}/status">
+          <select name="status">
+            <option value="new" ${msg.status === "new" ? "selected" : ""}>new</option>
+            <option value="read" ${msg.status === "read" ? "selected" : ""}>read</option>
+            <option value="replied" ${msg.status === "replied" ? "selected" : ""}>replied</option>
+          </select>
+          <button type="submit" class="btn">Update status</button>
+        </form>
+      </div>
+    </div>
+  </main>
+</body>
+</html>`);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/messages/:id/status", requireAdmin, async (req, res, next) => {
+  try {
+    const { status } = req.body;
+
+    if (!["new", "read", "replied"].includes(status)) {
+      return res.redirect(`/admin/messages/${req.params.id}`);
+    }
+
+    await ContactMessage.findByIdAndUpdate(req.params.id, { status });
+
+    res.redirect(`/admin/messages/${req.params.id}`);
+  } catch (err) {
+    next(err);
+  }
+});
+
 
 // ---------- Product CRUD ----------
 

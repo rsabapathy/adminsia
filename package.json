@@ -16,10 +16,10 @@
     "express": "^4.19.2",
     "express-session": "^1.17.3",
     "jsonwebtoken": "^9.0.2",
-    "mongoose": "5.13.21",
+    "mongoose": "^9.6.2",
     "morgan": "^1.10.0",
     "multer": "^2.0.2",
-    "stripe": "^20.0.0"
+    "stripe": "^20.4.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.0"
