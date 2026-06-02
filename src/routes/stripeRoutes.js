@@ -15,7 +15,7 @@ router.post("/create-checkout-session", async (req, res, next) => {
       notes,
       items,
       userId,
-    } = req.body;
+    } = req.body || {};
 
     if (!name || !email || !address || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ message: "Missing required checkout fields" });
