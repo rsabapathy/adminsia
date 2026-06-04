@@ -79,9 +79,6 @@ connectDB(MONGO_URI);
 app.use(cors({ origin: CORS_ORIGIN, credentials: true }));
 app.use(morgan('dev'));
 
-// User auth routes
-app.use('/api/auth', authRoutes);
-
 // Stripe webhook (raw body)
 app.post(
   '/webhooks/stripe',
@@ -126,6 +123,9 @@ app.post(
 );
 
 app.use(express.json());
+
+// User auth routes
+app.use('/api/auth', authRoutes);
 
 // Session for admin login
 app.use(

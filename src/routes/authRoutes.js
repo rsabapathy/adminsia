@@ -53,6 +53,44 @@ router.post('/register', async (req, res) => {
   }
 });
 
+// PUT /api/auth/me
+router.put("/me", requireUser, async (req, res) => {
+  try {
+    const { name, email } = req.body || {};
+
+    if (!name || !email) {
+      return res.status(400).json({ message: "Name and email are required" });
+    }
+
+    const existing = await User.findOne({
+      email: email.toLowerCase().trim(),
+      _id: { $ne: req.user.sub },
+    });
+
+    if (existing) {
+      return res.status(409).json({ message: "Email already in use" });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.user.sub,
+      {
+        name,
+        email: email.toLowerCase().trim(),
+      },
+      { new: true }
+    ).select("name email");
+
+    res.json({
+      id: user._id,
+      name: user.name,
+      email: user.email,
+    });
+  } catch (err) {
+    console.error("Update profile error", err);
+    res.status(500).json({ message: "Failed to update profile" });
+  }
+});
+
 // POST /api/auth/login
 router.post('/login', async (req, res) => {
   try {
