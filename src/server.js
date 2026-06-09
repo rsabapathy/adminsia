@@ -1,4 +1,5 @@
 require("dotenv").config();
+const cookieParser = require("cookie-parser");
 const Stripe = require('stripe');
 const stripeRoutes = require("./routes/stripeRoutes");
 const Order = require("./models/Order");
@@ -124,6 +125,7 @@ app.post(
 
 app.use(express.json());
 
+app.use(cookieParser());
 // User auth routes
 app.use('/api/auth', authRoutes);
 

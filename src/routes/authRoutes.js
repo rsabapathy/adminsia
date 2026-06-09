@@ -12,7 +12,7 @@ function signToken(user) {
     email: user.email,
     name: user.name,
   };
-  const secret = process.env.JWT_WEB_SECRET || 'dev-jwt-secret';
+  const secret = process.env.JWT_SECRET || "dev-jwt-secret";
   const expiresIn = process.env.JWT_EXPIRES_IN || '7d';
   return jwt.sign(payload, secret, { expiresIn });
 }
@@ -39,8 +39,14 @@ router.post('/register', async (req, res) => {
 
     const token = signToken(user);
 
+    res.cookie("aurora_token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+
     res.status(201).json({
-      token,
       user: {
         id: user._id,
         name: user.name,
@@ -110,9 +116,15 @@ router.post('/login', async (req, res) => {
     }
 
     const token = signToken(user);
+    
+    res.cookie("aurora_token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
 
     res.json({
-      token,
       user: {
         id: user._id,
         name: user.name,
@@ -125,7 +137,18 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// GET /api/auth/me (requires Authorization: Bearer <token>)
+// Logout route - clears the cookie
+router.post("/logout", (req, res) => {
+  res.clearCookie("aurora_token", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+  });
+
+  res.json({ message: "Logged out" });
+});
+
+// GET /api/auth/me (requires aurora_token cookie)
 router.get('/me', requireUser, async (req, res) => {
   try {
     const user = await User.findById(req.user.sub).select('name email');

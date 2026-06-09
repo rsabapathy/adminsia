@@ -1299,7 +1299,9 @@ router.get('/orders/:id', requireAdmin, async (req, res, next) => {
   <head>
     <meta charset="UTF-8" />
     <title>Order ${o._id}</title>
+    <style>
     ${adminBaseStyles()}
+    </style>
   </head>
   <body>
     ${adminHeader("orders")}
