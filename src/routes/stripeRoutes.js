@@ -65,8 +65,8 @@ router.post("/create-checkout-session", async (req, res, next) => {
         orderId: order._id.toString(),
         userId: userId || "",
       },
-      success_url: `${process.env.FRONTEND_URL}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.FRONTEND_URL}/checkout`,
+      success_url: `https://siacoffee.co.uk/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `https://siacoffee.co.uk/checkout`,
     });
 
     order.paymentReference = session.id;
